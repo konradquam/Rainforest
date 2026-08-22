@@ -17,7 +17,8 @@ Local configuration: `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`, `TEMPORAL_ADDRESS`,
 | `config.py` | `Settings` dataclass + `load_settings()`, which reads `.env` (via `python-dotenv`) and caches the result. Raises if `ANTHROPIC_API_KEY` is unset. |
 | `models.py` | Shared domain dataclasses: `Task` (id, description, metadata) and `AgentResult` (output, stop_reason). Passed as Temporal activity/workflow inputs and outputs, so kept plain and JSON-serializable. |
 | `activity_names.py` | String constants for activity names (e.g. `RUN_AGENT_ACTIVITY`). Imported by both the activity's `@activity.defn(name=...)` and by workflow files that call `workflow.execute_activity(...)` — keeps the two in sync without hardcoding the string twice. Deliberately dependency-free so workflow files can import it without pulling `anthropic`/`dotenv` into Temporal's workflow sandbox. |
-| `worker.py` | The worker entrypoint. Connects to the Temporal server and runs a `Worker` registered with every activity and workflow the platform currently has. Restart this process after any change to activity/workflow code. |
+| `agent_registry.py` | `AGENT_WORKFLOWS` — the single map from an agent's short name (e.g. `"hello_agent"`) to its workflow class. Both `worker.py` (which workflows to register) and `scripts/run_workflow.py` (which one to start, and validating the CLI's `agent` argument) read from this one place. Add a new agent here once, and both pick it up. |
+| `worker.py` | The worker entrypoint. Connects to the Temporal server and runs a `Worker` registered with every activity and every workflow in `AGENT_WORKFLOWS`. Restart this process after any change to activity/workflow code. |
 
 ## `src/activities/` — Temporal activities shared across agents
 
@@ -41,14 +42,15 @@ Empty so far — reserved for agent tools (Temporal-activity-wrapped or plain) s
 
 | File | Purpose |
 |---|---|
-| `run_workflow.py` | Starts the `HelloAgentWorkflow` against the running Temporal server/worker, from the terminal, with a prompt and optional task id/description. |
+| `run_workflow.py` | Starts a registered agent's workflow against the running Temporal server/worker, from the terminal: `run_workflow.py <agent> <prompt>` plus optional `--task-id`/`--task-description`. The agent name is looked up in `core/agent_registry.py`. |
 | `smoke_test_activity.py` | Runs `run_agent_activity` directly through Temporal's `ActivityEnvironment` test harness — exercises the Anthropic wiring with no Temporal server involved at all. |
 
 ## How a request flows
 
 ```
-scripts/run_workflow.py
-  -> Client.execute_workflow(HelloAgentWorkflow.run, ...)   [connects to Temporal server]
+scripts/run_workflow.py <agent> <prompt>
+  -> looks up <agent> in core/agent_registry.AGENT_WORKFLOWS
+  -> Client.execute_workflow(<agent's workflow>.run, ...)   [connects to Temporal server]
   -> Temporal server schedules the workflow task on the task queue
   -> core/worker.py's Worker picks it up
   -> HelloAgentWorkflow.run(prompt, task)

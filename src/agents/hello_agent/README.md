@@ -17,7 +17,7 @@ Requires the Temporal dev server and the worker to be running (see the top-level
 
 ```bash
 source .venv/bin/activate
-PYTHONPATH=src python scripts/run_workflow.py "Say hello in one short sentence."
+PYTHONPATH=src python scripts/run_workflow.py hello_agent "Say hello in one short sentence."
 ```
 
 Optional flags: `--task-id <id>`, `--task-description "..."`.

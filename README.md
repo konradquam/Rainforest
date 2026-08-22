@@ -36,11 +36,12 @@ Three terminals:
    ```
    Restart this any time you change activity/workflow code or `worker.py`'s registration list — there's no hot reload.
 
-3. **Start a workflow run**
+3. **Start a workflow run** — pass which agent to run, then the prompt
    ```bash
    source .venv/bin/activate
-   PYTHONPATH=src python scripts/run_workflow.py "Say hello in one short sentence."
+   PYTHONPATH=src python scripts/run_workflow.py hello_agent "Say hello in one short sentence."
    ```
+   The agent name must be one registered in `core/agent_registry.py`; passing anything else lists the valid options.
 
 To sanity-check the Anthropic wiring in isolation, with no Temporal server involved at all:
 ```bash
