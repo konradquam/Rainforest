@@ -1,47 +1,37 @@
 import argparse
 import asyncio
-import json
 import uuid
 
 from temporalio.client import Client
 
+from core.agent_registry import AGENT_WORKFLOWS
 from core.config import load_settings
+from core.models import Task
 
 
 async def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Start any registered workflow by name",
-        epilog='Example: run_workflow.py HelloAgentWorkflow '
-        '--arg \'"Say hello in one short sentence."\' '
-        '--arg \'{"id": "demo-1", "description": "Ad-hoc task"}\'',
-    )
-    parser.add_argument("workflow", help="Registered workflow type name, e.g. HelloAgentWorkflow")
-    parser.add_argument(
-        "--arg",
-        dest="args",
-        action="append",
-        default=[],
-        help="A single workflow argument, JSON-encoded. Repeat in order for multiple positional args.",
-    )
-    parser.add_argument("--id", dest="workflow_id", default=None)
-    parser.add_argument("--task-queue", dest="task_queue", default=None)
+    parser = argparse.ArgumentParser(description="Start a registered agent's workflow")
+    parser.add_argument("agent", choices=sorted(AGENT_WORKFLOWS), help="Which agent to run")
+    parser.add_argument("prompt", help="Prompt to send the agent")
+    parser.add_argument("--task-id", default=str(uuid.uuid4()))
+    parser.add_argument("--task-description", default="Ad-hoc task started from the terminal")
     args = parser.parse_args()
+
+    workflow_cls = AGENT_WORKFLOWS[args.agent]
 
     settings = load_settings()
     client = await Client.connect(settings.temporal_address, namespace=settings.temporal_namespace)
 
-    workflow_args = [json.loads(a) for a in args.args]
-    workflow_id = args.workflow_id or f"{args.workflow}-{uuid.uuid4()}"
-    task_queue = args.task_queue or settings.task_queue
-
+    task = Task(id=args.task_id, description=args.task_description)
     result = await client.execute_workflow(
-        args.workflow,
-        args=workflow_args,
-        id=workflow_id,
-        task_queue=task_queue,
+        workflow_cls.run,
+        args=[args.prompt, task],
+        id=f"{args.agent}-{task.id}",
+        task_queue=settings.task_queue,
     )
 
-    print(result)
+    print("output:", result.output)
+    print("stop_reason:", result.stop_reason)
 
 
 if __name__ == "__main__":
