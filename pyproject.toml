@@ -1,0 +1,20 @@
+[project]
+name = "rainforest"
+version = "0.1.0"
+description = "Agentic ecosystem built on Temporal workflows"
+requires-python = ">=3.11"
+dependencies = [
+    "temporalio>=1.31.0",
+    "anthropic>=1.0.0",
+    "python-dotenv>=1.0.0",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
